@@ -12,12 +12,6 @@ import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeClassifier
 from sklearn import base
 
-def I(flag):
-    return 1 if flag else 0
-
-def sign(x):
-    return abs(x)/x if x!=0 else 1
-
 def indexToVector(y,k,labelDict):
     y_new = []
     for yi in y:
@@ -38,12 +32,13 @@ class AdaBoostClassifier:
         if base_estimator == None:
             base_estimator = DecisionTreeClassifier(max_depth=1)
         self.base_estimator = base_estimator
+        self.estimator_errors_ = []
         
     def fit(self,X,y):
         
         X = np.float64(X)
         N = len(y)
-        w = [1/N for i in range(N)]
+        w = np.array([1/N for i in range(N)])
         
         self.createLabelDict(np.unique(y))
         k = len(self.classes)
@@ -53,13 +48,14 @@ class AdaBoostClassifier:
             Gm = base.clone(self.base_estimator).\
                             fit(X,y,sample_weight=w).predict
             
-            errM = sum([w[i]*I(y[i]!=Gm(X[i].reshape(1,-1))) \
-                        for i in range(N)])/sum(w)
+            incorrect = Gm(X) != y
+            errM = np.average(incorrect,weights=w,axis=0)
+            
+            self.estimator_errors_.append(errM)
             
             BetaM = (np.log((1-errM)/errM)+np.log(k-1))
             
-            w = [w[i]*np.exp(BetaM*I(y[i]!=Gm(X[i].reshape(1,-1))))\
-                     for i in range(N)]
+            w *= np.exp(BetaM*incorrect*(w > 0))
             
             self.models[m] = (BetaM,Gm)
             
